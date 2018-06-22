@@ -1,0 +1,17 @@
+version: 0.2
+
+phases:
+  install:
+    commands:
+      - echo "nothing to do in install"
+  pre_build:
+    commands:
+      - echo "Installing dependencies - `pwd`"
+      - echo "dependencies install completed `date`"
+  build:
+    commands:
+      - echo "Starting build `date` in `pwd`"
+      - aws s3 sync "./build" "s3://$WEBSITE_BUCKET"
+  post_build:
+    commands:
+      - echo "build completed on `date`"
