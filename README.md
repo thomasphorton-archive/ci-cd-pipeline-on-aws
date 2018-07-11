@@ -93,27 +93,9 @@ You should see your CloudFront distribution in the console with a status of 'In 
 ## Version Control your project with CodeCommit
 Now that we have a way for people to access our website, we'll probably want to make some updates to it. If you're going to be making updates to a project, it's best to use some sort of Version Control to keep track of your changes.
 
-Before we do anything, we'll need to create an SSH key. If you already have one, skip to 'Configure CodeCommit SSH'.
-
-### Create a new SSH Key
-In the console, enter the command (substituting your email address for `<YOUR_EMAIL>`):
-
-```
-ssh-keygen -t rsa -b 4096 -C "<YOUR_EMAIL>"
-```
-
-Pick a path to save the file to, and add a passphrase if you'd like.
-
-### Configure CodeCommit SSH
-In the [IAM console](https://console.aws.amazon.com/iam), click 'Add user'. Provide a name (i.e. `codecommit-user`) and check the box for 'Programmatic access', then click 'Next'.
-
-Click 'Create Group', and give the group a name (i.e. `codecommit-users`). In the policy search box, search for and select 'AWSCodeCommitPowerUser'. Click 'Create group'.
-
-Make sure the 'codecommit-users' checkbox is selected, then click 'Next', then 'Create user', then 'Close'.
-
-In the 'Users' section of the IAM console, click the user name of the user you just created, then click the 'Security credentials' tab.
-
-Under 'SSH keys for AWS CodeCommit', click the 'Upload SSH public key' button. Paste the contents of your SSH key and click 'Upload SSH public key'.
+### Configure Connection to CodeCommit
+* [Connection Over HTTPS](https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-https-unixes.html?icmpid=docs_acc_console_connect#setting-up-https-unixes-account)
+* [Connection Over SSH](https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-ssh-unixes.html)
 
 ### Create a CodeCommit Repository
 In the [CodeCommit console](https://console.aws.amazon.com/codecommit), click the 'Create Repository' button. Provide a name and description, then click 'Create repository'.
@@ -179,23 +161,14 @@ If successful, you should be able to navigate through the repo in the [CodeCommi
 * Update in S3
     * Still a manual process!
 
-## CodePipeline
-* https://aws.amazon.com/codepipeline/
 
 ## CodeBuild
 * https://aws.amazon.com/codebuild/
 
+* Set up CodeBuild project
+* Review buildspec file
+* Run once
 
-## Next Steps
 
-* Add tests
-    *
-
-* Add CSS preprocessor
-    * CodeBuild step
-
-* User Authentication
-    * Cognito
-
-* REST API
-    * API Gateway / Lambda
+## CodePipeline
+* https://aws.amazon.com/codepipeline/
