@@ -28,7 +28,7 @@ Click the 'Create bucket' button and enter a compliant bucket name, then click '
 
 The next tab is for bucket permissions. You can leave all of these as default for now as well.
 
-Review the settings and click 'Create bucket'.
+Review the settings and click 'Create bucket'. Note the bucket name as `<WEBSITE_BUCKET>`.
 
 ### Upload a file to the Bucket
 Click the 'Upload' button, click 'Add files', and navigate to and then select `index.html` from this repository's `src` directory. Click 'Open' and then 'Upload'.
@@ -98,35 +98,9 @@ Now that we have a way for people to access our website, we'll probably want to 
 * [Connection Over SSH](https://docs.aws.amazon.com/codecommit/latest/userguide/setting-up-ssh-unixes.html)
 
 ### Create a CodeCommit Repository
-In the [CodeCommit console](https://console.aws.amazon.com/codecommit), click the 'Create Repository' button. Provide a name and description, then click 'Create repository'.
+In the [CodeCommit console](https://console.aws.amazon.com/codecommit), click the 'Create Repository' button. Provide a name and description, then click 'Create repository'. Note the name as `<REPO_NAME>`.
 
-The next page is optional. Email notifications are helpful, but we can set those up later so click 'Skip'.
-
-If you cloned this repository, skip to 'Add CodeCommit as a Git Remote'.
-
-If you downloaded the .zip, you'll need to initialize a git repo. To do that, navigate to the folder containing `ci-cd-pipeline-on-aws-master.zip` in your terminal and unzip it with
-
-```
-unzip ci-cd-pipeline-on-aws-master.zip
-```
-
-Move to the directory with
-
-```
-cd ci-cd-pipeline-on-aws-master.zip
-```
-
-and initialize a git repo with
-
-```
-git init
-```
-
-Create an initial commit with
-
-```
-git add -A && git commit -m "Initial commit"
-```
+The next page is optional. Email notifications are helpful, but can be set up later so click 'Skip' for now.
 
 ### Add CodeCommit as a Git Remote
 Now that our repository is ready, we need to add CodeCommit as a remote. You can do that with the following command:
@@ -143,27 +117,166 @@ git push --set-upstream codecommit master
 
 If successful, you should be able to navigate through the repo in the [CodeCommit console](https://console.aws.amazon.com/codecommit).
 
-## CodeCommit
-* How do you keep track of changes?
-* How do you know you've got the right version?
-* https://aws.amazon.com/codecommit/
-* Explain version control, git repository
-* Clone our git repository from GitHub
-* Create CodeCommit repository
-* explain SNS
-* Add CodeCommit repo as a remote
-* Create a branch
-* Make a change
-* Push to CodeCommit
-* Create Pull Request in console
-* Merge PR
-* Update master branch
-* Update in S3
-    * Still a manual process!
+### Create a Pull Request
+* Create a new branch
 
+```
+git checkout -b pr-example
+```
+* Open the repository in your IDE and make a change to `src/index.html`. Save the file.
 
-## CodeBuild
+* Commit the change.
+
+```
+git add -A && git commit -m "Change for pull request"
+```
+
+* Push the branch to your CodeCommit repository.
+
+```
+git push codecommit
+```
+
+* In the CodeCommit console, navigate to your repository.
+* Click `Create pull request`
+* Choose your `pr-example` branch as the Source.
+* Click 'Compare'.
+* CodeCommit should tell you that you the branch is mergeable. Add a Title and Description to your PR, and click 'Create'.
+
+### Review the Pull Request
+Open Pull Requests can be viewed in the 'Pull requests' section in the sidebar.
+
+* Click the 'Changes' tab and review the git diff.
+* Click the 'Commits' tab and review the git history for the Pull Request.
+* Click the 'Merge' button.
+* Confirm 'Merge' and that you'd like to delete the pull request branch.
+* Your changes should now be visible in the 'master' branch of your repository.
+
+Great! You've reviewed and merged a pull request. This still doesn't solve the problem of deploying your changes to the S3 bucket.
+
+## Create a CI/CD Pipeline with CodePipeline and CodeBuild
+
+### Look at our Buildspec
+CodeBuild uses a file called a 'buildspec' to run commands. This repository contains a few different buildspecs that we will use.
+
+* Open `buildspec-simple.yml` in your IDE.
+
+A buildspec file is broken into different phases. In this simple example, the only phase we will use is the 'Build' phase.
+
+The build phase uses the AWS CLI to sync between our repository's `./src` folder and the website's S3 bucket. Make a mental note- this will come up a little later.
+
+### Create a CodeBuild Project
 * https://aws.amazon.com/codebuild/
+
+* Create a new S3 bucket for CodeBuild Artifacts
+  * Bucket name: `<YOUR_ALIAS>-wdc-codebuild-artifacts`
+
+* Create a new CodeBuild project using the following settings:
+
+#### Project Settings
+* Project Name: `wdc-site-build`
+
+#### Source
+* Source Provider: `AWS CodeCommit`
+* Repository: `<REPO_NAME>`
+
+#### Environment
+* Environment Image: image managed by AWS CodeBuild
+* Operating system: `Ubuntu`
+* Runtime: `Node.js`
+* Runtime version: `aws/codebuild/nodejs:10.1.0`
+* Build specification: Use the buildspec.yml in the source code root directory
+* Buildspec name: `buildspec-simple.yml`
+
+#### Artifacts
+* Type: `Amazon S3`
+* Name: `/`
+* Path: `wdc-site-build`
+* Namespace type: `Build ID`
+* Bucket name: Select S3 bucket created at the beginning of this section.
+
+#### Service role
+* Create a service role in your account
+* Role name: leave default
+
+#### Show Advanced Settings -> Environment Variables
+We'll want to pass some information to CodeBuild about our environment to use when executing the build:
+
+* Name: WEBSITE_BUCKET
+* Value: `<WEBSITE_BUCKET>`
+
+Click continue, review the settings, and click 'Save and Build'.
+
+### Start a New Build
+The next page is where you will kick off a build. The only thing you need to do here is to select the repository branch to use in the build.
+
+* Branch: `master`
+
+Click `Start build`.
+
+### Diagnosing Build Failures
+Pretty quickly, you should see that the build status has changed to `Failed`.
+
+On the build page, scroll down to 'Phase details' to see a status table for each of the phases. Click the arrow next to 'BUILD' to expand the details and view the error message.
+
+`Message: Error while executing command: aws s3 sync "./src" "s3://$WEBSITE_BUCKET". Reason: exit status 1`
+
+We now know where the error occurred, but only have a vague message. Dive deeper by scrolling down to the 'Build logs'. Towards the end, you should see:
+
+`fatal error: An error occurred (AccessDenied) when calling the ListObjects operation: Access Denied`
+
+This means that the CodeBuild container does not have all of the permissions it needs to operate on AWS resources. Remember above when we were looking at our buildspec files? Each AWS CLI command will require a set of permissions to be granted. In this case, the `aws s3 sync` command needs to ListObjects in the bucket to keep everything in sync. The S3 sync command actually needs more than that- it needs to be able to PutObjects, DeleteObjects, and a few other things. Rather than guess-and-checking, we'll give CodeBuild full access over our WebsiteBucket for now.
+
+### Granting Permissions to CodeBuild
+CodeBuild containers are assigned IAM roles to delegate permissions. We'll need to create a policy to give permissions for our WebsiteBucket, and attach it to the CodeBuild IAM role.
+
+#### Create an IAM Policy
+* Navigate to the IAM dashboard in the AWS Console.
+* Click 'Policies' in the sidebar, and then click 'Create policy'.
+* Pick one of the following two options to create your policy:
+
+##### Using the visual editor:
+* Service: S3
+* Actions: All S3 actions
+* Resources:
+  * Specific
+  * bucket -> Add ARN
+    * Bucket name: `<WEBSITE_BUCKET>`
+  * object -> Add ARN(s) ->
+    * Bucket name: `<WEBSITE_BUCKET>`
+    * Object name: `*` (Checkbox for 'Any')
+* Click 'Review policy'
+* Name your policy `wdc-site-build-policy` and click 'Create Policy'
+
+##### Using the JSON editor:
+```
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "WebsiteBucketFullAccess",
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+          "arn:aws:s3:::<WEBSITE_BUCKET>/*",
+          "arn:aws:s3:::<WEBSITE_BUCKET>"
+      ]
+    }
+  ]
+}
+```
+
+#### Attach the IAM Policy to the CodeBuild Role
+* Navigate back to the CodeBuild project list in the AWS Console.
+* Select the `wdc-site-build` project and select 'Update' from the 'Actions' dropdown.
+* Scroll down to the 'Service role' section, and note the 'Role name'.
+* Navigate to the IAM dashboard in the AWS Console.
+* Click 'Roles' in the sidebar, and search for the CodeBuild role
+* On the Role Summary page, click 'Attach policies' in the 'Permissions' tab.
+* Search for `wdc-site-build-policy`, click the checkbox to select it, and click 'Attach Policy'.
+
+#### Retry the Build
+* Navigate back to the 
 
 * Set up CodeBuild project
 * Review buildspec file
