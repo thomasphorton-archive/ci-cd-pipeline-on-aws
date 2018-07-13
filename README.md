@@ -395,4 +395,10 @@ Review the pipeline settings and click 'Create Pipeline'. The pipeline will run 
 ## Leveling Up Your Build
 At this point, our build process is a simple AWS CLI command to copy a directory into an S3 bucket. This is a great proof of concept, but it's hardly ever that simple.
 
-This repository contains a simple React.js project in `./react-src/`, as well as a `./buildspec-react.yml` to define the build steps.
+If you finish the workshop early, try building a more complex pipeline!
+
+Ideas:
+* Build a react app
+* Run unit tests
+* Deploy to a 'Gamma' stage
+* Add a manual approval step to your pipeline
